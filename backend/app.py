@@ -46,7 +46,7 @@ try:
     print(" SEMUA SISTEM GO!")
 
 except Exception as e:
-    print(f" Gagal load: {str(e)}")
+    print(f"Gagal load: {str(e)}")
 
 @app.get("/")
 def home():
