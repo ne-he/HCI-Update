@@ -1,97 +1,253 @@
-import { TrendingUp, Target, Shield, Zap } from 'lucide-react';
+import { Target, Zap, Shield, TrendingUp, Github } from "lucide-react";
+import { GlitchText } from "./GlitchText";
+import { NeonSeparator } from "./NeonSeparator";
+import { CollaboratorCard } from "./CollaboratorCard";
+
+const features = [
+  {
+    icon: <Target size={20} color="#00ff9d" />,
+    title: "Accurate Predictions",
+    description:
+      "Deep learning model trained on thousands of URLs delivers high-precision phishing detection.",
+  },
+  {
+    icon: <Zap size={20} color="#00ff9d" />,
+    title: "Fast Analysis",
+    description:
+      "Real-time URL analysis completes in seconds, so you stay protected without slowing down.",
+  },
+  {
+    icon: <Shield size={20} color="#00ff9d" />,
+    title: "Privacy First",
+    description:
+      "URLs are analyzed locally without storing your data. Your browsing stays private.",
+  },
+  {
+    icon: <TrendingUp size={20} color="#00ff9d" />,
+    title: "Continuous Improvement",
+    description:
+      "The model is regularly updated with new phishing patterns to stay ahead of threats.",
+  },
+];
 
 export function AboutUs() {
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="bg-white rounded-2xl shadow-2xl p-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-100 rounded-full mb-6">
-            <TrendingUp className="w-10 h-10 text-indigo-600" />
+    <div
+      style={{
+        background: "#0a0f0f",
+        minHeight: "100%",
+        padding: "32px 24px",
+        fontFamily: "monospace",
+      }}
+    >
+      <div
+        className="max-w-6xl mx-auto"
+        style={{ maxWidth: 1152, margin: "0 auto" }}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* ── Left Column ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* Header */}
+            <div>
+              <GlitchText
+                text="About Link Predictor"
+                style={{
+                  fontSize: 32,
+                  fontWeight: 800,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  display: "block",
+                  lineHeight: 1.2,
+                }}
+              />
+              <p
+                style={{
+                  color: "rgba(0,255,255,0.5)",
+                  fontSize: 11,
+                  letterSpacing: "0.25em",
+                  marginTop: 8,
+                  marginBottom: 16,
+                  textTransform: "uppercase",
+                }}
+              >
+                PHISHING DETECTION SYSTEM v3.0
+              </p>
+
+              {/* Decorative divider — two gradient lines + diamond */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 4,
+                }}
+              >
+                <div
+                  style={{
+                    flex: 1,
+                    height: 1,
+                    background:
+                      "linear-gradient(90deg, transparent, #00ff9d, transparent)",
+                    boxShadow: "0 0 6px #00ff9d",
+                  }}
+                />
+                <div
+                  style={{
+                    width: 8,
+                    height: 8,
+                    background: "#00ff9d",
+                    transform: "rotate(45deg)",
+                    boxShadow: "0 0 8px #00ff9d",
+                    flexShrink: 0,
+                  }}
+                />
+                <div
+                  style={{
+                    flex: 1,
+                    height: 1,
+                    background:
+                      "linear-gradient(90deg, transparent, #00ff9d, transparent)",
+                    boxShadow: "0 0 6px #00ff9d",
+                  }}
+                />
+              </div>
+            </div>
+
+            <NeonSeparator />
+
+            {/* Project description */}
+            <p
+              style={{
+                color: "rgba(224,224,224,0.7)",
+                fontSize: 14,
+                lineHeight: 1.8,
+                margin: 0,
+              }}
+            >
+              PhishGuard is an advanced phishing detection system powered by
+              deep learning. Using a fine-tuned sentence transformer model, it
+              analyzes URLs in real-time to identify malicious links with high
+              accuracy — protecting users before they click.
+            </p>
+
+            <NeonSeparator label="OUR MISSION" />
+
+            {/* Mission */}
+            <p
+              style={{
+                color: "rgba(224,224,224,0.7)",
+                fontSize: 14,
+                lineHeight: 1.8,
+                margin: 0,
+              }}
+            >
+              Our mission is to make the internet safer by giving everyone
+              access to professional-grade phishing detection. We believe
+              security tools should be fast, accessible, and transparent — no
+              technical expertise required.
+            </p>
+
+            <NeonSeparator label="WHAT WE OFFER" />
+
+            {/* Feature grid 2x2 */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 16,
+              }}
+            >
+              {features.map((f) => (
+                <div
+                  key={f.title}
+                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                >
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 8,
+                      background: "rgba(0,255,157,0.08)",
+                      border: "1px solid rgba(0,255,157,0.2)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {f.icon}
+                  </div>
+                  <span
+                    style={{
+                      color: "#e0e0e0",
+                      fontSize: 13,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {f.title}
+                  </span>
+                  <span
+                    style={{
+                      color: "rgba(224,224,224,0.5)",
+                      fontSize: 12,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {f.description}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">About Link Predictor</h1>
-          <p className="text-xl text-gray-600">
-            hdfjisa sdahufihsaiuhiuasof uasfuasiofpsoa
-          </p>
-        </div>
 
-        {/* Mission */}
-        <div className="mb-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Our Mission</h2>
-          <p className="text-gray-700 leading-relaxed">
-            hfuiahsuin fuiwanfie fiawifkenuwfianwiiufd sduijhiusfuiasuidfhiuhsaiuhui
-          </p>
-        </div>
+          {/* ── Right Column ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <NeonSeparator label="CORE COLLABORATORS" />
 
-        {/* Features */}
-        <div className="mb-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">What We Offer</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="flex gap-4">
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <Target className="w-6 h-6 text-indigo-600" />
-                </div>
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 mb-2">Accurate Predictions</h3>
-                <p className="text-gray-600 text-sm">
-                  asfd weafawfsadfsa df safsda fsfda fdaf
-                </p>
-              </div>
+            {/* Collaborator cards */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <CollaboratorCard
+                name="Nehemiah Gantenk Abiez"
+                role="Lead Developer & AI Engineer"
+                description="Deep learning model architecture, frontend engineering & system design."
+              />
+              <CollaboratorCard
+                name="Collaborator 2"
+                role="TBA"
+                description="TBA"
+              />
+              <CollaboratorCard
+                name="Collaborator 3"
+                role="TBA"
+                description="TBA"
+              />
             </div>
 
-            <div className="flex gap-4">
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <Zap className="w-6 h-6 text-indigo-600" />
-                </div>
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 mb-2">Fast Analysis</h3>
-                <p className="text-gray-600 text-sm">
-                  a sdfasdf asf sadfsad fsd fsaf as fas 
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <Shield className="w-6 h-6 text-indigo-600" />
-                </div>
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 mb-2">Privacy First</h3>
-                <p className="text-gray-600 text-sm">
-                  a sdfasfasf asfd as efa sf s.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-indigo-600" />
-                </div>
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 mb-2">Continuous Improvement</h3>
-                <p className="text-gray-600 text-sm">
-                  esa fefaseeeeeeeee sef s fda sdf
-                </p>
-              </div>
-            </div>
+            {/* View GitHub button */}
+            <button
+              onClick={() => window.open("https://github.com", "_blank")}
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: 10,
+                background: "rgba(0,255,157,0.07)",
+                border: "1px solid rgba(0,255,157,0.3)",
+                color: "#00ff9d",
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              <Github size={16} />
+              View GitHub
+            </button>
           </div>
-        </div>
-
-        {/* Technology */}
-        <div className="bg-gray-50 rounded-lg p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">aaaaaaaaaaaaaaaaaaa</h2>
-          <p className="text-gray-700 leading-relaxed mb-4">
-            ef aaaas adf sf asf asdf asdfsdaf asfsda gh hssh 
-          </p>
-        
         </div>
       </div>
     </div>
