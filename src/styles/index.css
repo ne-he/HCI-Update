@@ -1,3 +1,60 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+/* ── CYBER THEME VARIABLES ── */
+:root {
+  --cyber-bg: #0a0f0f;
+  --cyber-green: #00ff9d;
+  --cyber-cyan: #00ffff;
+  --cyber-red: #ff3b3b;
+  --cyber-text: #e0e0e0;
+  --cyber-glass: rgba(255, 255, 255, 0.05);
+  --cyber-border: rgba(255, 255, 255, 0.1);
+  --cyber-glow-green: 0 0 15px #00ff9d;
+  --cyber-glow-cyan: 0 0 15px #00ffff;
+  --cyber-glow-red: 0 0 15px #ff3b3b;
+}
+
+/* ── KEYFRAMES ── */
+@keyframes cyber-sweep {
+  0%   { left: -60%; }
+  100% { left: 110%; }
+}
+
+@keyframes cyber-border-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes cyber-pulse-dot {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50%       { opacity: 1;   transform: scale(1.2); }
+}
+
+@keyframes cyber-scan-line {
+  0%   { top: 0%; }
+  100% { top: 100%; }
+}
+
+@keyframes cyber-flicker {
+  0%, 95%, 100% { opacity: 1; }
+  96%           { opacity: 0.4; }
+  98%           { opacity: 0.8; }
+}
+
+@keyframes cyber-fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cyber-slide-right {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0a0f0f; }
+::-webkit-scrollbar-thumb { background: rgba(0,255,157,0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,255,157,0.6); }

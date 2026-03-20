@@ -1,4 +1,4 @@
-import { LinkPredictor } from './LinkPredictor';
+import { LinkPredictor } from "./LinkPredictor";
 
 export function Home() {
   return (
