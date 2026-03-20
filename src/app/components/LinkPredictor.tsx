@@ -1,278 +1,273 @@
-import { useState, useRef } from "react";
-import {
-  ClipboardPaste,
-  TrendingUp,
-  Camera,
-  Upload,
-  X,
-} from "lucide-react";
+﻿import { useState, useRef, useEffect } from "react";
+import { ClipboardPaste, Camera, Upload, X, ShieldAlert, ShieldCheck, Copy, ExternalLink, Terminal, ChevronDown, ChevronUp } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
+import { motion, AnimatePresence } from "framer-motion";
+import { GlitchText } from "./GlitchText";
+import { MatrixProgress } from "./MatrixProgress";
+import { StatisticWidget, type PredictionRecord } from "./StatisticWidget";
 
-interface LinkPredictorProps {
-  initialUrl?: string;
+const STORAGE_KEY = "phishguard_history";
+function loadHistory(): PredictionRecord[] {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"); } catch { return []; }
+}
+function saveHistory(h: PredictionRecord[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(h.slice(0, 50)));
 }
 
-export function LinkPredictor({ initialUrl = "" }: LinkPredictorProps) {
+function CyberCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <div style={{ background: "rgba(8,14,14,0.88)", backdropFilter: "blur(14px)", border: "1px solid rgba(0,255,157,0.18)", borderRadius: 16, boxShadow: "0 0 30px rgba(0,255,157,0.05)", ...style }}>{children}</div>
+  );
+}
+
+function SectionLabel({ children, color = "#00ff9d" }: { children: React.ReactNode; color?: string }) {
+  return (
+    <p style={{ fontSize: 10, letterSpacing: "0.2em", color, margin: "0 0 14px 0", display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ color, textShadow: `0 0 6px ${color}` }}>&#9658;</span> {children}
+    </p>
+  );
+}
+
+export function LinkPredictor({ initialUrl = "" }: { initialUrl?: string }) {
   const [url, setUrl] = useState(initialUrl);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-
-  // 🔹 RESULT
   const [label, setLabel] = useState<string | null>(null);
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [legitProb, setLegitProb] = useState<number | null>(null);
-
-  // 🔹 BAR
   const [displayLegit, setDisplayLegit] = useState(100);
-
-  // 🔹 ANALYZE PROGRESS
   const [progress, setProgress] = useState(0);
-
-  // 🔹 QR
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
-
+  const [history, setHistory] = useState<PredictionRecord[]>(loadHistory);
+  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
+  const [showTerminal, setShowTerminal] = useState(false);
+  const [copied, setCopied] = useState(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const terminalRef = useRef<HTMLDivElement>(null);
 
-  /* ================= CLIPBOARD ================= */
-  const handlePaste = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      setUrl(text);
-    } catch {
-      alert("Clipboard access denied");
-    }
+  useEffect(() => {
+    if (terminalRef.current) terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+  }, [terminalLogs]);
+
+  const addLog = (msg: string) => {
+    const ts = new Date().toLocaleTimeString("en-US", { hour12: false });
+    setTerminalLogs((p) => [...p, `[${ts}] ${msg}`]);
   };
-
-  /* ================= ANALYZE ================= */
+  const handlePaste = async () => {
+    try { const t = await navigator.clipboard.readText(); setUrl(t); addLog("URL pasted"); } catch { alert("Clipboard denied"); }
+  };
+  const handleCopyUrl = async () => {
+    if (!url) return;
+    await navigator.clipboard.writeText(url);
+    setCopied(true); setTimeout(() => setCopied(false), 1500);
+  };
   const handleAnalyze = async () => {
     if (!url.trim()) return alert("Masukkan URL dulu");
-
-    setIsAnalyzing(true);
-    setProgress(0);
-    setLabel(null);
-    setAccuracy(null);
-    setLegitProb(null);
-    setDisplayLegit(100);
-
-    // Progress 5 detik
-    const progressInterval = setInterval(() => {
-      setProgress((p) => (p >= 98 ? p : p + 2));
-    }, 100);
-
+    setIsAnalyzing(true); setProgress(0); setLabel(null); setAccuracy(null);
+    setLegitProb(null); setDisplayLegit(100); setTerminalLogs([]); setShowTerminal(true);
+    addLog("Initializing...");
+    const iv = setInterval(() => setProgress((p) => p >= 98 ? p : p + 2), 100);
+    setTimeout(() => addLog("Encoding URL..."), 600);
+    setTimeout(() => addLog("Generating vector [384-dim]..."), 1400);
+    setTimeout(() => addLog("Running model inference..."), 2400);
+    setTimeout(() => addLog("Post-processing..."), 3600);
+    setTimeout(() => addLog("Finalizing..."), 4400);
     try {
       const res = await fetch("http://127.0.0.1:8000/predict", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }),
       });
-
       if (!res.ok) throw new Error("Backend error");
-
       const data = await res.json();
-
       setTimeout(() => {
-        clearInterval(progressInterval);
-        setProgress(100);
-
-        setLabel(data.label);
-        setAccuracy(data.confidence);
-        setLegitProb(data.legitimate_chance);
-        setIsAnalyzing(false);
-
-        // Animate legitimate bar (100 ➝ result)
-        let current = 100;
-        const target = data.legitimate_chance;
-
-        const barInterval = setInterval(() => {
-          current -= 1;
-          setDisplayLegit(current);
-          if (current <= target) {
-            setDisplayLegit(target);
-            clearInterval(barInterval);
-          }
+        clearInterval(iv); setProgress(100); setLabel(data.label); setAccuracy(data.confidence);
+        setLegitProb(data.legitimate_chance); setIsAnalyzing(false);
+        addLog(`Result: ${data.label} (${data.confidence.toFixed(1)}%)`);
+        const record: PredictionRecord = { url, label: data.label, confidence: data.confidence, timestamp: Date.now() };
+        const updated = [record, ...history]; setHistory(updated); saveHistory(updated);
+        let cur = 100;
+        const barIv = setInterval(() => {
+          cur -= 1; setDisplayLegit(cur);
+          if (cur <= data.legitimate_chance) { setDisplayLegit(data.legitimate_chance); clearInterval(barIv); }
         }, 20);
       }, 5000);
     } catch (err) {
-      clearInterval(progressInterval);
-      setIsAnalyzing(false);
-      alert("Tidak bisa terhubung ke FastAPI");
-      console.error(err);
+      clearInterval(iv); setIsAnalyzing(false); addLog("ERROR: backend unreachable");
+      alert("Tidak bisa terhubung ke FastAPI"); console.error(err);
     }
   };
-
-  /* ================= QR CAMERA ================= */
   const startCameraScanning = async () => {
-    setScanError(null);
-    setIsScanning(true);
-
+    setScanError(null); setIsScanning(true); addLog("Starting camera...");
     try {
-      const qr = new Html5Qrcode("qr-reader");
-      html5QrCodeRef.current = qr;
-
-      await qr.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (decodedText) => {
-          setUrl(decodedText);
-          stopScanning();
-        },
-        () => {}
-      );
-    } catch {
-      setScanError("Camera error / permission denied");
-      setIsScanning(false);
-    }
+      const qr = new Html5Qrcode("qr-reader"); html5QrCodeRef.current = qr;
+      await qr.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 },
+        (decoded) => { setUrl(decoded); addLog(`QR: ${decoded}`); stopScanning(); }, () => {});
+    } catch { setScanError("Camera error"); setIsScanning(false); }
   };
-
   const stopScanning = async () => {
-    if (html5QrCodeRef.current) {
-      await html5QrCodeRef.current.stop();
-      html5QrCodeRef.current.clear();
-      html5QrCodeRef.current = null;
-    }
+    if (html5QrCodeRef.current) { await html5QrCodeRef.current.stop(); html5QrCodeRef.current.clear(); html5QrCodeRef.current = null; }
     setIsScanning(false);
   };
-
-  /* ================= QR IMAGE UPLOAD ================= */
-  const handleImageUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setScanError(null);
-
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setScanError(null); addLog(`Scanning: ${file.name}`);
     try {
       const qr = new Html5Qrcode("qr-file-reader");
       const result = await qr.scanFile(file, true);
-      setUrl(result);
-      qr.clear();
-    } catch {
-      setScanError("QR / Barcode tidak terbaca");
-    }
-
+      setUrl(result); addLog(`QR: ${result}`); qr.clear();
+    } catch { setScanError("QR tidak terbaca"); addLog("ERROR: decode failed"); }
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  /* ================= UI ================= */
+  const isPhishing = label === "PHISHING";
+  const hasResult = label !== null && accuracy !== null && legitProb !== null;
+  const btnSec: React.CSSProperties = { padding: "9px 16px", borderRadius: 8, background: "rgba(0,255,255,0.06)", border: "1px solid rgba(0,255,255,0.22)", color: "#00ffff", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, textDecoration: "none" };
+  const btnIcon: React.CSSProperties = { padding: "10px 12px", borderRadius: 8, background: "rgba(0,255,157,0.07)", border: "1px solid rgba(0,255,157,0.22)", color: "#00ff9d", cursor: "pointer", display: "flex", alignItems: "center" };
+
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-2xl">
-      <div className="text-center mb-6">
-        <TrendingUp className="mx-auto w-10 h-10 text-indigo-600" />
-        <h1 className="text-2xl font-bold">Link Predictor</h1>
+    <div style={{ width: "100%" }}>
+      <div style={{ textAlign: "center", marginBottom: 32 }}>
+        <h1 style={{ fontSize: 34, fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", margin: "0 0 6px 0" }}>
+          <GlitchText text="Link Predictor" />
+        </h1>
+        <p style={{ fontSize: 11, letterSpacing: "0.25em", color: "rgba(0,255,255,0.5)", margin: 0 }}>DEEP LEARNING PHISHING DETECTION SYSTEM v3.0</p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 12 }}>
+          <div style={{ height: 1, width: 100, background: "linear-gradient(90deg, transparent, #00ff9d)" }} />
+          <span style={{ color: "#00ff9d", textShadow: "0 0 8px #00ff9d" }}>&#9670;</span>
+          <div style={{ height: 1, width: 100, background: "linear-gradient(90deg, #00ff9d, transparent)" }} />
+        </div>
       </div>
 
-      {/* INPUT */}
-      <div className="flex gap-2 mb-4">
-        <input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://example.com"
-          className="flex-1 border rounded-lg px-4 py-2"
-        />
-        <button onClick={handlePaste}>
-          <ClipboardPaste />
-        </button>
-      </div>
-
-      {/* ACTION */}
-      <button
-        onClick={handleAnalyze}
-        disabled={isAnalyzing}
-        className="w-full bg-indigo-600 text-white py-2 rounded-lg mb-4"
-      >
-        {isAnalyzing ? "Analyzing..." : "Analyze"}
-      </button>
-
-      {/* ANALYZE PROGRESS */}
-      {isAnalyzing && (
-        <div className="mb-4">
-          <div className="flex justify-between text-sm mb-1">
-            <span>Analyzing</span>
-            <span>{progress}%</span>
-          </div>
-          <div className="h-4 bg-gray-200 rounded-full">
-            <div
-              className="h-full bg-indigo-600 rounded-full transition-all"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* RESULT */}
-      {label && accuracy !== null && legitProb !== null && (
-        <div className="border rounded-lg p-4 space-y-3">
-          <h2 className="font-bold text-lg">
-            Status:{" "}
-            <span
-              className={
-                label === "PHISHING" ? "text-red-600" : "text-green-600"
-              }
-            >
-              {label}
-            </span>
-          </h2>
-
-          <p>
-            Confidence: <b>{accuracy}%</b>
-          </p>
-
-          {/* LEGIT BAR */}
-          <div>
-            <div className="flex justify-between text-sm">
-              <span>Legitimate Probability</span>
-              <span>{displayLegit}%</span>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <CyberCard style={{ padding: 24 }}>
+            <SectionLabel>TARGET URL</SectionLabel>
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              <input value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAnalyze()} placeholder="https://example.com"
+                style={{ flex: 1, padding: "11px 14px", borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(0,255,157,0.25)", color: "#e0e0e0", outline: "none", fontFamily: "monospace", fontSize: 13 }}
+                onFocus={(e) => { e.target.style.borderColor = "#00ff9d"; e.target.style.boxShadow = "0 0 12px rgba(0,255,157,0.3)"; }}
+                onBlur={(e) => { e.target.style.borderColor = "rgba(0,255,157,0.25)"; e.target.style.boxShadow = "none"; }} />
+              <button onClick={handlePaste} style={btnIcon}><ClipboardPaste style={{ width: 16, height: 16 }} /></button>
+              <button onClick={handleCopyUrl} style={btnIcon}>{copied ? <span style={{ fontSize: 12 }}>OK</span> : <Copy style={{ width: 16, height: 16 }} />}</button>
             </div>
-            <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-green-500 transition-all"
-                style={{ width: `${displayLegit}%` }}
-              />
-            </div>
-          </div>
+            <button onClick={handleAnalyze} disabled={isAnalyzing}
+              style={{ width: "100%", padding: "13px 0", borderRadius: 12, background: "linear-gradient(135deg, rgba(0,255,157,0.14), rgba(0,255,255,0.08))", border: "1px solid rgba(0,255,157,0.5)", color: "#00ff9d", textShadow: "0 0 10px #00ff9d", fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", cursor: isAnalyzing ? "not-allowed" : "pointer", opacity: isAnalyzing ? 0.6 : 1, position: "relative", overflow: "hidden" }}>
+              <span style={{ position: "relative", zIndex: 1 }}>{isAnalyzing ? "Scanning..." : "Analyze URL"}</span>
+              {isAnalyzing && <div style={{ position: "absolute", top: 0, left: "-60%", width: "50%", height: "100%", background: "linear-gradient(90deg, transparent, rgba(0,255,157,0.3), transparent)", animation: "cyber-sweep 1.2s linear infinite" }} />}
+            </button>
+            <AnimatePresence>
+              {isAnalyzing && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} style={{ marginTop: 14, overflow: "hidden" }}>
+                  <MatrixProgress progress={progress} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </CyberCard>
+
+          <CyberCard style={{ padding: 24 }}>
+            <SectionLabel color="#00ffff">QR / BARCODE SCANNER</SectionLabel>
+            {!isScanning && (
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={startCameraScanning} style={{ ...btnSec, flex: 1, justifyContent: "center" }}><Camera style={{ width: 14, height: 14 }} />&nbsp;Camera</button>
+                <label style={{ ...btnSec, flex: 1, justifyContent: "center", cursor: "pointer" }}>
+                  <Upload style={{ width: 14, height: 14 }} />&nbsp;Upload
+                  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display: "none" }} />
+                </label>
+              </div>
+            )}
+            {isScanning && (
+              <div>
+                <button onClick={stopScanning} style={{ display: "flex", alignItems: "center", gap: 6, color: "#ff3b3b", fontSize: 12, background: "none", border: "none", cursor: "pointer", marginBottom: 10 }}>
+                  <X style={{ width: 14, height: 14 }} /> Stop
+                </button>
+                <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(0,255,157,0.35)" }}>
+                  <div id="qr-reader" />
+                  <div style={{ position: "absolute", left: 0, right: 0, height: 3, background: "linear-gradient(90deg, transparent, #00ff9d, transparent)", boxShadow: "0 0 10px #00ff9d", animation: "cyber-scan-line 1.8s linear infinite", pointerEvents: "none" }} />
+                </div>
+              </div>
+            )}
+            <div id="qr-file-reader" style={{ display: "none" }} />
+            {scanError && <p style={{ color: "#ff3b3b", fontSize: 12, margin: "10px 0 0 0" }}>&#9888; {scanError}</p>}
+          </CyberCard>
+
+          <CyberCard style={{ overflow: "hidden" }}>
+            <button onClick={() => setShowTerminal((v) => !v)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: "none", border: "none", cursor: "pointer", color: "rgba(0,255,157,0.7)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Terminal style={{ width: 14, height: 14 }} />
+                <span style={{ fontSize: 10, letterSpacing: "0.2em" }}>SYSTEM LOG</span>
+                {terminalLogs.length > 0 && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "rgba(0,255,157,0.15)", color: "#00ff9d" }}>{terminalLogs.length}</span>}
+              </div>
+              {showTerminal ? <ChevronUp style={{ width: 14, height: 14 }} /> : <ChevronDown style={{ width: 14, height: 14 }} />}
+            </button>
+            <AnimatePresence>
+              {showTerminal && (
+                <motion.div initial={{ height: 0 }} animate={{ height: 150 }} exit={{ height: 0 }} style={{ overflow: "hidden" }}>
+                  <div ref={terminalRef} style={{ height: 150, overflowY: "auto", padding: "0 20px 14px", fontFamily: "monospace", fontSize: 11 }}>
+                    {terminalLogs.length === 0 ? <p style={{ color: "rgba(224,224,224,0.2)", margin: 0 }}>Awaiting...</p> : terminalLogs.map((log, i) => <p key={i} style={{ color: log.includes("ERROR") ? "#ff3b3b" : "rgba(0,255,157,0.75)", lineHeight: 1.9, margin: 0 }}>{log}</p>)}
+                    {isAnalyzing && <span style={{ color: "#00ff9d" }}>|</span>}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </CyberCard>
         </div>
-      )}
 
-      {/* QR SECTION */}
-      <div className="mt-6">
-        {!isScanning && (
-          <div className="flex gap-3">
-            <button
-              onClick={startCameraScanning}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-100 rounded-lg"
-            >
-              <Camera size={18} /> Camera
-            </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <CyberCard style={{ padding: 24, flex: 1 }}>
+            <SectionLabel color="#00ffff">ANALYSIS RESULT</SectionLabel>
+            <AnimatePresence mode="wait">
+              {!hasResult && !isAnalyzing && (
+                <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 0", gap: 14 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,255,157,0.05)", border: "1px solid rgba(0,255,157,0.15)" }}>
+                    <ShieldAlert style={{ width: 28, height: 28, color: "rgba(0,255,157,0.3)" }} />
+                  </div>
+                  <p style={{ fontSize: 13, color: "rgba(224,224,224,0.3)", textAlign: "center", lineHeight: 1.7, margin: 0 }}>Enter a URL and click Analyze</p>
+                </motion.div>
+              )}
+              {isAnalyzing && (
+                <motion.div key="analyzing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 0", gap: 14 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid rgba(0,255,157,0.5)", boxShadow: "0 0 24px rgba(0,255,157,0.25)", animation: "cyber-border-spin 2s linear infinite" }}>
+                    <span style={{ fontSize: 26 }}>&#9889;</span>
+                  </div>
+                  <p style={{ fontSize: 11, letterSpacing: "0.2em", color: "rgba(0,255,157,0.6)", margin: 0 }}>ANALYZING...</p>
+                </motion.div>
+              )}
+              {hasResult && !isAnalyzing && (
+                <motion.div key="result" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <div style={{ borderRadius: 12, padding: "18px 20px", marginBottom: 18, display: "flex", alignItems: "center", gap: 16, background: isPhishing ? "rgba(255,59,59,0.08)" : "rgba(0,255,157,0.08)", border: `1px solid ${isPhishing ? "rgba(255,59,59,0.45)" : "rgba(0,255,157,0.45)"}`, boxShadow: isPhishing ? "0 0 24px rgba(255,59,59,0.12)" : "0 0 24px rgba(0,255,157,0.12)" }}>
+                    {isPhishing ? <ShieldAlert style={{ width: 44, height: 44, color: "#ff3b3b", filter: "drop-shadow(0 0 10px #ff3b3b)", flexShrink: 0 }} /> : <ShieldCheck style={{ width: 44, height: 44, color: "#00ff9d", filter: "drop-shadow(0 0 10px #00ff9d)", flexShrink: 0 }} />}
+                    <div>
+                      <p style={{ fontSize: 10, letterSpacing: "0.2em", color: "rgba(224,224,224,0.4)", margin: "0 0 4px 0" }}>VERDICT</p>
+                      <p style={{ fontSize: 30, fontWeight: 800, letterSpacing: "0.15em", color: isPhishing ? "#ff3b3b" : "#00ff9d", textShadow: isPhishing ? "0 0 14px #ff3b3b" : "0 0 14px #00ff9d", margin: 0 }}>{label}</p>
+                    </div>
+                  </div>
+                  {[{ lbl: "CONFIDENCE", val: accuracy, anim: true }, { lbl: "LEGITIMATE PROBABILITY", val: displayLegit, anim: false }].map(({ lbl, val, anim }) => (
+                    <div key={lbl} style={{ marginBottom: 14 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 6, color: "rgba(224,224,224,0.5)", letterSpacing: "0.15em" }}>
+                        <span>{lbl}</span><span style={{ color: "#00ffff" }}>{(val ?? 0).toFixed(1)}%</span>
+                      </div>
+                      <div style={{ height: 10, borderRadius: 5, overflow: "hidden", background: "rgba(255,255,255,0.06)" }}>
+                        {anim
+                          ? <motion.div initial={{ width: 0 }} animate={{ width: `${val}%` }} transition={{ duration: 0.9, ease: "easeOut" }} style={{ height: "100%", borderRadius: 5, background: isPhishing ? "linear-gradient(90deg,#ff3b3b,#ff6b6b)" : "linear-gradient(90deg,#00ff9d,#00ffff)", boxShadow: isPhishing ? "0 0 10px #ff3b3b" : "0 0 10px #00ff9d" }} />
+                          : <div style={{ height: "100%", borderRadius: 5, width: `${val}%`, background: "linear-gradient(90deg,#00ff9d,#00ffff)", boxShadow: "0 0 10px #00ff9d", transition: "width 75ms linear" }} />
+                        }
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+                    <button onClick={handleCopyUrl} style={{ ...btnSec, flex: 1, justifyContent: "center" }}><Copy style={{ width: 13, height: 13 }} />&nbsp;{copied ? "Copied!" : "Copy URL"}</button>
+                    {!isPhishing && <a href={url.startsWith("http") ? url : `https://${url}`} target="_blank" rel="noopener noreferrer" style={{ ...btnSec, flex: 1, justifyContent: "center" }}><ExternalLink style={{ width: 13, height: 13 }} />&nbsp;Open URL</a>}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </CyberCard>
 
-            <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer">
-              <Upload size={18} /> Upload
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-            </label>
-          </div>
-        )}
-
-        {isScanning && (
-          <div className="mt-3">
-            <button
-              onClick={stopScanning}
-              className="flex items-center gap-2 mb-2 text-red-600"
-            >
-              <X size={18} /> Stop Camera
-            </button>
-            <div id="qr-reader" />
-          </div>
-        )}
-
-        <div id="qr-file-reader" className="hidden" />
-        {scanError && <p className="text-red-600 mt-2">{scanError}</p>}
+          <CyberCard style={{ padding: 24 }}>
+            <SectionLabel>STATISTICS & HISTORY</SectionLabel>
+            <StatisticWidget history={history} />
+          </CyberCard>
+        </div>
       </div>
     </div>
   );
