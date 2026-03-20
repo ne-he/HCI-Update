@@ -1,4 +1,4 @@
-import { Target, Zap, Shield, TrendingUp, Github } from "lucide-react";
+import { Target, Zap, Shield, TrendingUp, Github as GithubIcon } from "lucide-react";
 import { GlitchText } from "./GlitchText";
 import { NeonSeparator } from "./NeonSeparator";
 import { CollaboratorCard } from "./CollaboratorCard";
@@ -244,7 +244,7 @@ export function AboutUs() {
                 gap: 8,
               }}
             >
-              <Github size={16} />
+              <GithubIcon size={16} />
               View GitHub
             </button>
           </div>
