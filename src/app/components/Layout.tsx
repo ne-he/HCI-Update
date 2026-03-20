@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation } from "react-router";
 import { Home, Info, Shield } from "lucide-react";
 import { CyberParticles } from "./CyberParticles";
 import { ThreeScene } from "./ThreeScene";
+import { CustomCursor } from "./CustomCursor";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function Layout() {
@@ -23,6 +24,9 @@ export function Layout() {
         overflow: "hidden",
       }}
     >
+      {/* Custom cursor */}
+      <CustomCursor />
+
       {/* Layer 0: particles (fixed, fullscreen) */}
       <CyberParticles />
 

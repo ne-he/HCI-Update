@@ -1,10 +1,11 @@
 ﻿import { useState, useRef, useEffect } from "react";
-import { ClipboardPaste, Camera, Upload, X, ShieldAlert, ShieldCheck, Copy, ExternalLink, Terminal, ChevronDown, ChevronUp } from "lucide-react";
+import { ClipboardPaste, Camera, Upload, X, ShieldAlert, ShieldCheck, Copy, ExternalLink, Terminal, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { GlitchText } from "./GlitchText";
 import { MatrixProgress } from "./MatrixProgress";
 import { StatisticWidget, type PredictionRecord } from "./StatisticWidget";
+import { ToastNotification } from "./ToastNotification";
 
 const STORAGE_KEY = "phishguard_history";
 function loadHistory(): PredictionRecord[] {
@@ -41,7 +42,12 @@ export function LinkPredictor({ initialUrl = "" }: { initialUrl?: string }) {
   const [history, setHistory] = useState<PredictionRecord[]>(loadHistory);
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
   const [showTerminal, setShowTerminal] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [inputFocused, setInputFocused] = useState(false);
+  const [btnSuccess, setBtnSuccess] = useState(false);
+  const [btnHovered, setBtnHovered] = useState(false);
+  const [pulseKey, setPulseKey] = useState(0);
+  const shouldReduceMotion = useReducedMotion();
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -54,16 +60,27 @@ export function LinkPredictor({ initialUrl = "" }: { initialUrl?: string }) {
     const ts = new Date().toLocaleTimeString("en-US", { hour12: false });
     setTerminalLogs((p) => [...p, `[${ts}] ${msg}`]);
   };
+
   const handlePaste = async () => {
-    try { const t = await navigator.clipboard.readText(); setUrl(t); addLog("URL pasted"); } catch { alert("Clipboard denied"); }
+    try {
+      const t = await navigator.clipboard.readText();
+      setUrl(t);
+      addLog("URL pasted");
+      setToast("Pasted!");
+    } catch {
+      setToast("Clipboard denied");
+    }
   };
+
   const handleCopyUrl = async () => {
     if (!url) return;
     await navigator.clipboard.writeText(url);
-    setCopied(true); setTimeout(() => setCopied(false), 1500);
+    setToast("Copied!");
   };
+
   const handleAnalyze = async () => {
     if (!url.trim()) return alert("Masukkan URL dulu");
+    setPulseKey((k) => k + 1);
     setIsAnalyzing(true); setProgress(0); setLabel(null); setAccuracy(null);
     setLegitProb(null); setDisplayLegit(100); setTerminalLogs([]); setShowTerminal(true);
     addLog("Initializing...");
@@ -82,6 +99,7 @@ export function LinkPredictor({ initialUrl = "" }: { initialUrl?: string }) {
       setTimeout(() => {
         clearInterval(iv); setProgress(100); setLabel(data.label); setAccuracy(data.confidence);
         setLegitProb(data.legitimate_chance); setIsAnalyzing(false);
+        setBtnSuccess(true); setTimeout(() => setBtnSuccess(false), 1000);
         addLog(`Result: ${data.label} (${data.confidence.toFixed(1)}%)`);
         const record: PredictionRecord = { url, label: data.label, confidence: data.confidence, timestamp: Date.now() };
         const updated = [record, ...history]; setHistory(updated); saveHistory(updated);
@@ -96,6 +114,7 @@ export function LinkPredictor({ initialUrl = "" }: { initialUrl?: string }) {
       alert("Tidak bisa terhubung ke FastAPI"); console.error(err);
     }
   };
+
   const startCameraScanning = async () => {
     setScanError(null); setIsScanning(true); addLog("Starting camera...");
     try {
@@ -104,10 +123,12 @@ export function LinkPredictor({ initialUrl = "" }: { initialUrl?: string }) {
         (decoded) => { setUrl(decoded); addLog(`QR: ${decoded}`); stopScanning(); }, () => {});
     } catch { setScanError("Camera error"); setIsScanning(false); }
   };
+
   const stopScanning = async () => {
     if (html5QrCodeRef.current) { await html5QrCodeRef.current.stop(); html5QrCodeRef.current.clear(); html5QrCodeRef.current = null; }
     setIsScanning(false);
   };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     setScanError(null); addLog(`Scanning: ${file.name}`);
@@ -123,6 +144,12 @@ export function LinkPredictor({ initialUrl = "" }: { initialUrl?: string }) {
   const hasResult = label !== null && accuracy !== null && legitProb !== null;
   const btnSec: React.CSSProperties = { padding: "9px 16px", borderRadius: 8, background: "rgba(0,255,255,0.06)", border: "1px solid rgba(0,255,255,0.22)", color: "#00ffff", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, textDecoration: "none" };
   const btnIcon: React.CSSProperties = { padding: "10px 12px", borderRadius: 8, background: "rgba(0,255,157,0.07)", border: "1px solid rgba(0,255,157,0.22)", color: "#00ff9d", cursor: "pointer", display: "flex", alignItems: "center" };
+
+  const analyzeBoxShadow = btnSuccess
+    ? "0 0 20px #00ff9d, 0 0 40px rgba(0,255,157,0.4)"
+    : btnHovered && !isAnalyzing
+      ? "0 0 14px rgba(0,255,157,0.4)"
+      : "none";
 
   return (
     <div style={{ width: "100%" }}>
@@ -142,22 +169,68 @@ export function LinkPredictor({ initialUrl = "" }: { initialUrl?: string }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <CyberCard style={{ padding: 24 }}>
             <SectionLabel>TARGET URL</SectionLabel>
-            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-              <input value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAnalyze()} placeholder="https://example.com"
-                style={{ flex: 1, padding: "11px 14px", borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(0,255,157,0.25)", color: "#e0e0e0", outline: "none", fontFamily: "monospace", fontSize: 13 }}
-                onFocus={(e) => { e.target.style.borderColor = "#00ff9d"; e.target.style.boxShadow = "0 0 12px rgba(0,255,157,0.3)"; }}
-                onBlur={(e) => { e.target.style.borderColor = "rgba(0,255,157,0.25)"; e.target.style.boxShadow = "none"; }} />
-              <button onClick={handlePaste} style={btnIcon}><ClipboardPaste style={{ width: 16, height: 16 }} /></button>
-              <button onClick={handleCopyUrl} style={btnIcon}>{copied ? <span style={{ fontSize: 12 }}>OK</span> : <Copy style={{ width: 16, height: 16 }} />}</button>
+            <div style={{ position: "relative" }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                <input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
+                  placeholder="https://example.com"
+                  style={{ flex: 1, padding: "11px 14px", borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(0,255,157,0.25)", color: "#e0e0e0", outline: "none", fontFamily: "monospace", fontSize: 13 }}
+                  onFocus={(e) => { e.target.style.borderColor = "#00ff9d"; e.target.style.boxShadow = "0 0 12px rgba(0,255,157,0.3)"; setInputFocused(true); }}
+                  onBlur={(e) => { e.target.style.borderColor = "rgba(0,255,157,0.25)"; e.target.style.boxShadow = "none"; setInputFocused(false); }}
+                />
+                <button onClick={handlePaste} style={btnIcon}><ClipboardPaste style={{ width: 16, height: 16 }} /></button>
+                <button onClick={handleCopyUrl} style={btnIcon}><Copy style={{ width: 16, height: 16 }} /></button>
+              </div>
+              {inputFocused && (
+                <div style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  height: 2,
+                  width: "100%",
+                  background: "linear-gradient(90deg, #00ff9d, #00ffff)",
+                  boxShadow: "0 0 8px #00ff9d",
+                  animation: "cyber-sweep-line 0.3s ease forwards",
+                  transformOrigin: "left",
+                  pointerEvents: "none",
+                }} />
+              )}
             </div>
-            <button onClick={handleAnalyze} disabled={isAnalyzing}
-              style={{ width: "100%", padding: "13px 0", borderRadius: 12, background: "linear-gradient(135deg, rgba(0,255,157,0.14), rgba(0,255,255,0.08))", border: "1px solid rgba(0,255,157,0.5)", color: "#00ff9d", textShadow: "0 0 10px #00ff9d", fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", cursor: isAnalyzing ? "not-allowed" : "pointer", opacity: isAnalyzing ? 0.6 : 1, position: "relative", overflow: "hidden" }}>
+            <button
+              key={pulseKey}
+              onClick={handleAnalyze}
+              disabled={isAnalyzing}
+              onMouseEnter={() => setBtnHovered(true)}
+              onMouseLeave={() => setBtnHovered(false)}
+              style={{
+                width: "100%",
+                padding: "13px 0",
+                borderRadius: 12,
+                background: "linear-gradient(135deg, rgba(0,255,157,0.14), rgba(0,255,255,0.08))",
+                border: "1px solid rgba(0,255,157,0.5)",
+                color: "#00ff9d",
+                textShadow: "0 0 10px #00ff9d",
+                fontSize: 13,
+                fontWeight: 700,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                cursor: isAnalyzing ? "not-allowed" : "pointer",
+                opacity: isAnalyzing ? 0.6 : 1,
+                position: "relative",
+                overflow: "hidden",
+                boxShadow: analyzeBoxShadow,
+                transform: btnHovered && !isAnalyzing ? "scale(1.02)" : "scale(1)",
+                transition: "all 0.2s ease",
+                animation: "cyber-btn-pulse 0.4s ease",
+              }}>
               <span style={{ position: "relative", zIndex: 1 }}>{isAnalyzing ? "Scanning..." : "Analyze URL"}</span>
               {isAnalyzing && <div style={{ position: "absolute", top: 0, left: "-60%", width: "50%", height: "100%", background: "linear-gradient(90deg, transparent, rgba(0,255,157,0.3), transparent)", animation: "cyber-sweep 1.2s linear infinite" }} />}
             </button>
             <AnimatePresence>
               {isAnalyzing && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} style={{ marginTop: 14, overflow: "hidden" }}>
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: shouldReduceMotion ? 0 : 0.2 }} style={{ marginTop: 14, overflow: "hidden" }}>
                   <MatrixProgress progress={progress} />
                 </motion.div>
               )}
@@ -197,13 +270,34 @@ export function LinkPredictor({ initialUrl = "" }: { initialUrl?: string }) {
                 <span style={{ fontSize: 10, letterSpacing: "0.2em" }}>SYSTEM LOG</span>
                 {terminalLogs.length > 0 && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "rgba(0,255,157,0.15)", color: "#00ff9d" }}>{terminalLogs.length}</span>}
               </div>
-              {showTerminal ? <ChevronUp style={{ width: 14, height: 14 }} /> : <ChevronDown style={{ width: 14, height: 14 }} />}
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setTerminalLogs([]); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,59,59,0.6)", padding: "2px 4px", display: "flex", alignItems: "center" }}
+                >
+                  <Trash2 style={{ width: 12, height: 12 }} />
+                </button>
+                {showTerminal ? <ChevronUp style={{ width: 14, height: 14 }} /> : <ChevronDown style={{ width: 14, height: 14 }} />}
+              </div>
             </button>
             <AnimatePresence>
               {showTerminal && (
-                <motion.div initial={{ height: 0 }} animate={{ height: 150 }} exit={{ height: 0 }} style={{ overflow: "hidden" }}>
+                <motion.div initial={{ height: 0 }} animate={{ height: 150 }} exit={{ height: 0 }} transition={{ duration: shouldReduceMotion ? 0 : 0.2 }} style={{ overflow: "hidden" }}>
                   <div ref={terminalRef} style={{ height: 150, overflowY: "auto", padding: "0 20px 14px", fontFamily: "monospace", fontSize: 11 }}>
-                    {terminalLogs.length === 0 ? <p style={{ color: "rgba(224,224,224,0.2)", margin: 0 }}>Awaiting...</p> : terminalLogs.map((log, i) => <p key={i} style={{ color: log.includes("ERROR") ? "#ff3b3b" : "rgba(0,255,157,0.75)", lineHeight: 1.9, margin: 0 }}>{log}</p>)}
+                    {terminalLogs.length === 0
+                      ? <p style={{ color: "rgba(224,224,224,0.2)", margin: 0 }}>Awaiting...</p>
+                      : terminalLogs.map((log, i) => (
+                          <motion.p
+                            key={i}
+                            initial={{ opacity: 0, x: shouldReduceMotion ? 0 : -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
+                            style={{ color: log.includes("ERROR") ? "#ff3b3b" : "rgba(0,255,157,0.75)", lineHeight: 1.9, margin: 0 }}
+                          >
+                            {log}
+                          </motion.p>
+                        ))
+                    }
                     {isAnalyzing && <span style={{ color: "#00ff9d" }}>|</span>}
                   </div>
                 </motion.div>
@@ -255,7 +349,7 @@ export function LinkPredictor({ initialUrl = "" }: { initialUrl?: string }) {
                     </div>
                   ))}
                   <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-                    <button onClick={handleCopyUrl} style={{ ...btnSec, flex: 1, justifyContent: "center" }}><Copy style={{ width: 13, height: 13 }} />&nbsp;{copied ? "Copied!" : "Copy URL"}</button>
+                    <button onClick={handleCopyUrl} style={{ ...btnSec, flex: 1, justifyContent: "center" }}><Copy style={{ width: 13, height: 13 }} />&nbsp;Copy URL</button>
                     {!isPhishing && <a href={url.startsWith("http") ? url : `https://${url}`} target="_blank" rel="noopener noreferrer" style={{ ...btnSec, flex: 1, justifyContent: "center" }}><ExternalLink style={{ width: 13, height: 13 }} />&nbsp;Open URL</a>}
                   </div>
                 </motion.div>
@@ -265,10 +359,12 @@ export function LinkPredictor({ initialUrl = "" }: { initialUrl?: string }) {
 
           <CyberCard style={{ padding: 24 }}>
             <SectionLabel>STATISTICS & HISTORY</SectionLabel>
-            <StatisticWidget history={history} />
+            <StatisticWidget history={history} onSelectUrl={(u) => setUrl(u)} />
           </CyberCard>
         </div>
       </div>
+
+      <ToastNotification message={toast} onDone={() => setToast(null)} />
     </div>
   );
 }

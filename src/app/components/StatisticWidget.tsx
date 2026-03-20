@@ -1,6 +1,7 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { Clock, TrendingUp } from "lucide-react";
-import { motion } from "framer-motion";
+import { Clock, TrendingUp, RotateCcw } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
+import { useState } from "react";
 
 export interface PredictionRecord {
   url: string;
@@ -11,11 +12,14 @@ export interface PredictionRecord {
 
 interface StatisticWidgetProps {
   history: PredictionRecord[];
+  onSelectUrl?: (url: string) => void;
 }
 
 const COLORS = { PHISHING: "#ff3b3b", LEGITIMATE: "#00ff9d" };
 
-export function StatisticWidget({ history }: StatisticWidgetProps) {
+export function StatisticWidget({ history, onSelectUrl }: StatisticWidgetProps) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const shouldReduceMotion = useReducedMotion();
   const total = history.length;
   const phishingCount = history.filter((r) => r.label === "PHISHING").length;
   const legitCount = total - phishingCount;
@@ -128,11 +132,18 @@ export function StatisticWidget({ history }: StatisticWidgetProps) {
             {recent.map((r, i) => (
               <motion.li
                 key={r.timestamp}
-                initial={{ opacity: 0, x: -8 }}
+                initial={{ opacity: 0, x: shouldReduceMotion ? 0 : -8 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
+                transition={{ delay: shouldReduceMotion ? 0 : i * 0.05, duration: shouldReduceMotion ? 0 : 0.2 }}
                 className="flex items-center gap-2 rounded-lg px-3 py-2"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+                style={{
+                  background: hoveredIndex === i ? "rgba(0,255,157,0.06)" : "rgba(255,255,255,0.03)",
+                  border: hoveredIndex === i ? "1px solid rgba(0,255,157,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                  cursor: "pointer",
+                }}
+                onClick={() => { if (r.url) onSelectUrl?.(r.url); }}
+                onMouseEnter={() => setHoveredIndex(i)}
+                onMouseLeave={() => setHoveredIndex(null)}
               >
                 <span
                   className="w-1.5 h-1.5 rounded-full flex-shrink-0"
@@ -156,6 +167,9 @@ export function StatisticWidget({ history }: StatisticWidgetProps) {
                 >
                   {r.confidence.toFixed(0)}%
                 </span>
+                {hoveredIndex === i && (
+                  <RotateCcw className="flex-shrink-0" style={{ width: 16, height: 16, color: "#00ff9d" }} />
+                )}
               </motion.li>
             ))}
           </ul>

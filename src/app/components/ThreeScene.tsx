@@ -3,13 +3,22 @@ import * as THREE from "three";
 
 export function ThreeScene() {
   const mountRef = useRef<HTMLDivElement>(null);
+  const targetRotation = useRef({ x: 0, y: 0 });
+  const mouseNDC = useRef({ x: 0, y: 0 });
+  const webglFailed = useRef(false);
 
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
 
     // ── Renderer ──
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch {
+      webglFailed.current = true;
+      return; // WebGL not supported, cleanup and exit
+    }
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(mount.clientWidth, mount.clientHeight);
     renderer.setClearColor(0x000000, 0);
@@ -65,6 +74,7 @@ export function ThreeScene() {
       dotPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
       dotPositions[i * 3 + 2] = r * Math.cos(phi);
     }
+    const originalPositions = new Float32Array(dotPositions); // copy for repulse
     const dotGeo = new THREE.BufferGeometry();
     dotGeo.setAttribute("position", new THREE.BufferAttribute(dotPositions, 3));
     const dotMat = new THREE.PointsMaterial({
@@ -76,15 +86,58 @@ export function ThreeScene() {
     const dots = new THREE.Points(dotGeo, dotMat);
     scene.add(dots);
 
+    // ── Clock for ring pulse ──
+    const clock = new THREE.Clock();
+
+    // ── Mouse move handler ──
+    const onMouseMove = (e: MouseEvent) => {
+      targetRotation.current.x = (e.clientY / window.innerHeight - 0.5) * 0.4;
+      targetRotation.current.y = (e.clientX / window.innerWidth - 0.5) * 0.6;
+      mouseNDC.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouseNDC.current.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    };
+    window.addEventListener("mousemove", onMouseMove);
+
     // ── Animation loop ──
     let animId: number;
     const animate = () => {
       animId = requestAnimationFrame(animate);
-      globe.rotation.y += 0.003;
-      globe.rotation.x += 0.0008;
+
+      // Mouse parallax rotation (lerp)
+      globe.rotation.x += (targetRotation.current.x - globe.rotation.x) * 0.03;
+      globe.rotation.y += (targetRotation.current.y - globe.rotation.y) * 0.03;
+
       innerGlobe.rotation.y -= 0.002;
       ring.rotation.z += 0.004;
       dots.rotation.y += 0.002;
+
+      // Orbit ring pulse opacity
+      ringMat.opacity = 0.15 + 0.25 * (Math.sin(clock.getElapsedTime() * 1.2) * 0.5 + 0.5);
+
+      // Dot repulse effect
+      const positions = dotGeo.attributes.position.array as Float32Array;
+      for (let i = 0; i < dotCount; i++) {
+        const ox = originalPositions[i * 3];
+        const oy = originalPositions[i * 3 + 1];
+        // const oz = originalPositions[i * 3 + 2]; // unused in projection
+        // Project to NDC (simplified: use x/z ratio)
+        const ndcX = ox / 2;
+        const ndcY = oy / 2;
+        const dx = ndcX - mouseNDC.current.x;
+        const dy = ndcY - mouseNDC.current.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 0.3) {
+          const force = (0.3 - dist) / 0.3;
+          positions[i * 3]     += (dx / dist) * force * 0.02;
+          positions[i * 3 + 1] += (dy / dist) * force * 0.02;
+        } else {
+          // Lerp back to original position
+          positions[i * 3]     += (ox - positions[i * 3]) * 0.05;
+          positions[i * 3 + 1] += (oy - positions[i * 3 + 1]) * 0.05;
+        }
+      }
+      dotGeo.attributes.position.needsUpdate = true;
+
       renderer.render(scene, camera);
     };
     animate();
@@ -101,12 +154,15 @@ export function ThreeScene() {
     return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("mousemove", onMouseMove);
       renderer.dispose();
       if (mount.contains(renderer.domElement)) {
         mount.removeChild(renderer.domElement);
       }
     };
   }, []);
+
+  if (webglFailed.current) return null;
 
   return (
     <div
